@@ -85,10 +85,13 @@ def _get_access_token() -> str:
 def _get(path: str, params: dict = None) -> Any:
     """Make an authenticated GET request to the Strava API."""
     token = _get_access_token()
+    # httpx serializes None as empty-string params (e.g. `before=`), which Strava
+    # interprets as a real filter and returns zero results. Drop None values.
+    clean_params = {k: v for k, v in (params or {}).items() if v is not None}
     resp = httpx.get(
         f"{BASE_URL}{path}",
         headers={"Authorization": f"Bearer {token}"},
-        params=params or {},
+        params=clean_params,
         timeout=30,
     )
     if resp.status_code == 429:
