@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 import httpx
 from mcp.server.fastmcp import FastMCP
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.WARNING)
@@ -132,18 +132,24 @@ class ActivitiesInput(BaseModel):
 
 class ActivityIdInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-    activity_id: int = Field(description="Strava activity ID (integer).")
+    # Strava activity IDs become 64-bit after 2027-06-01. JavaScript-based MCP
+    # clients round integers above 2^53, so IDs travel as digit strings.
+    activity_id: str = Field(
+        pattern=r"^\d+$",
+        description="Strava activity ID as a string of digits (use the 'id' value from strava_list_activities).",
+    )
     include_all_efforts: bool = Field(default=False, description="Include all segment efforts.")
+
+    @field_validator("activity_id", mode="before")
+    @classmethod
+    def _coerce_int_id(cls, v: Any) -> Any:
+        # Accept a plain integer from older callers; small IDs survive JSON intact.
+        return str(v) if isinstance(v, int) and not isinstance(v, bool) else v
 
 
 class SegmentInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     segment_id: int = Field(description="Strava segment ID.")
-
-
-class AthleteStatsInput(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-    athlete_id: Optional[int] = Field(default=None, description="Athlete ID. Defaults to authenticated athlete.")
 
 
 class StarredSegmentsInput(BaseModel):
@@ -254,8 +260,10 @@ async def strava_list_activities(params: ActivitiesInput) -> str:
         # Return a trimmed, useful summary
         summarized = []
         for a in all_activities:
+            raw_id = a.get("id")
             summarized.append({
-                "id": a.get("id"),
+                # String form so 64-bit IDs survive JavaScript-based MCP clients.
+                "id": a.get("id_str") or (str(raw_id) if raw_id is not None else None),
                 "name": a.get("name"),
                 "sport_type": a.get("sport_type") or a.get("type"),
                 "start_date_local": a.get("start_date_local"),

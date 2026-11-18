@@ -2,7 +2,7 @@
 
 Exposes your Strava data — activities, segments, stats, gear, and routes — as MCP tools for use with Claude Desktop.
 
-Unlike Garmin, Strava uses **official OAuth2**, so you'll need to create a free Strava API app and do a one-time authorization. After that, tokens refresh automatically. Works with free Strava accounts — no Summit subscription required.
+Unlike Garmin, Strava uses **official OAuth2**, so you'll need to create a free Strava API app and do a one-time authorization. After that, tokens refresh automatically. Requires a paid Strava subscription: Strava now limits API access to subscribers, and apps on free accounts are marked inactive and get `403 Forbidden` on every request.
 
 ---
 
@@ -107,4 +107,4 @@ Use `strava_list_activities` with `sport_type` set to:
 - Rate limits: 200 requests per 15 minutes, 2000 per day
 - Requires `activity:read_all` scope (requested automatically by `auth.py`)
 - Token file stored at `~/.strava_token.json` — keep this private
-- Works with free Strava accounts — no Summit subscription required
+- Requires a paid Strava subscription. Without one, the API app shows as inactive and every request returns `403 Forbidden`.
